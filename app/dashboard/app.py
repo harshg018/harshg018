@@ -15,6 +15,7 @@ from app.analysis.text_sentiment import TextSentimentAnalyzer
 from app.analysis.image_emotion import ImageEmotionAnalyzer
 from app.ingestion.twitter import search_tweets
 from app.ingestion.csv_import import read_user_generated_csv
+from app.ingestion.sales_csv import read_sales_csv
 from sqlalchemy import select
 
 st.set_page_config(page_title="Brand Reputation Monitor", layout="wide")
@@ -109,11 +110,32 @@ def sidebar_controls():
     up = st.sidebar.file_uploader("CSV with columns: source, external_id, text, created_at, user_location, latitude, longitude, image_url", type=["csv"])
     process_csv = st.sidebar.button("Process CSV")
 
+    st.sidebar.subheader("Upload Sales/Engagement CSV")
+    sales_up = st.sidebar.file_uploader("CSV with columns: date, region, revenue, engagement", type=["csv"], key="sales_csv")
+    process_sales = st.sidebar.button("Process Sales CSV")
+
     st.sidebar.header("Filters")
     days = st.sidebar.slider("Lookback days", 1, 90, 14)
     min_date = datetime.utcnow() - timedelta(days=days)
 
-    return query, limit, fetch, up, process_csv, min_date
+    return query, limit, fetch, up, process_csv, min_date, sales_up, process_sales
+
+def save_sales(df: pd.DataFrame) -> int:
+    if df.empty:
+        return 0
+    with SessionLocal() as db:
+        new_count = 0
+        for _, row in df.iterrows():
+            sm = SalesMetric(
+                date=row.get("date") if pd.notna(row.get("date")) else datetime.utcnow(),
+                region=str(row.get("region", "")) if row.get("region") is not None else None,
+                revenue=float(row.get("revenue", 0.0)) if pd.notna(row.get("revenue")) else 0.0,
+                engagement=float(row.get("engagement", 0.0)) if pd.notna(row.get("engagement")) else 0.0,
+            )
+            db.add(sm)
+            new_count += 1
+        db.commit()
+        return new_count
 
 
 def render_overview(df: pd.DataFrame):
