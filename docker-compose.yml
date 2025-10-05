@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    image: brand-rep-dashboard:latest
+    container_name: brand-rep-app
+    ports:
+      - "8501:8501"
+    environment:
+      - DATABASE_URL=sqlite:///./data/brand_rep.db
+      - HF_SENTIMENT_MODEL=cardiffnlp/twitter-roberta-base-sentiment
+      - DEVICE=cpu
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
